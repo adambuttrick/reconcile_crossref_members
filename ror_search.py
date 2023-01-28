@@ -10,17 +10,17 @@ from thefuzz import fuzz
 
 
 def normalize_name(org_name):
-    org_name = org_name.lower()
+    org_name = re.sub(r'\s\(.*\)', '', org_name)
     org_name = re.sub(r'[^\w\s]', '', org_name)
+    org_name = org_name.lower()
     exclude = set(string.punctuation)
     org_name = ''.join(ch for ch in org_name if ch not in exclude)
     return org_name
 
 
-def compare_names(first_name, second_name):
+def compare_names(org_name, ror_name):
     mr_threshold = 90
-    name_mr = fuzz.ratio(normalize_name(
-        first_name), normalize_name(second_name))
+    name_mr = fuzz.ratio(org_name, normalize_name(ror_name))
     if name_mr > mr_threshold:
         return name_mr
     return ''
@@ -51,15 +51,15 @@ def ror_search(org_name):
                 address = country
             aliases = result['aliases']
             labels = [label['label'] for label in result['labels']] if result['labels'] != [] else []
-            name_mr = compare_names(ror_name, org_name)
+            name_mr = compare_names(org_name, ror_name)
             if name_mr:
                 ror_matches.append([ror_id, ror_name, address, 'primary_name', name_mr])
             for alias in aliases:
-                alias_mr = compare_names(ror_name, alias)
+                alias_mr = compare_names(org_name, alias)
                 if alias_mr:
                     ror_matches.append([ror_id, ror_name, address, 'alias', alias_mr])
             for label in labels:
-                label_mr = compare_names(ror_name, label)
+                label_mr = compare_names(org_name, label)
                 if label_mr:
                     ror_matches.append([ror_id, ror_name, address, 'label', label_mr])
     ror_matches = list(ror_matches for ror_matches,
@@ -85,7 +85,7 @@ def parse_and_search_member_file(f):
             member_id = row["member_id"]
             org_name = row["name"]
             print("Searching", member_id, "-", org_name, "...")
-            ror_matches = ror_search(org_name)
+            ror_matches = ror_search(normalize_name(org_name))
             with open(outfile, 'a') as f_out:
                 writer = csv.writer(f_out)
                 if ror_matches == []:
